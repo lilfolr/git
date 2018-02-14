@@ -718,7 +718,7 @@ test_expect_success GPG 'merge --no-edit tag should skip editor' '
 	git tag -f -s -m "A newer commit" signed &&
 	git reset --hard c0 &&
 
-	EDITOR=false git merge --no-edit signed &&
+	EDITOR=false git merge --no-edit --no-ff signed &&
 	git rev-parse signed^0 >expect &&
 	git rev-parse HEAD^2 >actual &&
 	test_cmp expect actual
