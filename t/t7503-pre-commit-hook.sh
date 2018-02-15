@@ -136,4 +136,18 @@ test_expect_success 'check the author in hook' '
 	git show -s
 '
 
+# a hook that adds one file to staging
+cat > "$HOOK" <<EOF
+#!/bin/sh
+git add file
+exit 0
+EOF
+test_expect_success 'check hook honours --only' '
+	echo "content" >> file &&
+	echo "other content" >> file2 &&
+	git add file2 &&
+	git commit --only -- file &&
+	test "$(git status --porcelain)" = "" 
+'
+
 test_done
