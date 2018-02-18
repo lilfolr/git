@@ -139,15 +139,22 @@ test_expect_success 'check the author in hook' '
 # a hook that adds one file to staging
 cat > "$HOOK" <<EOF
 #!/bin/sh
-git add file
-exit 0
+git add firstFile
 EOF
+
+
+cat >expect <<\EOF
+file2
+EOF
+
 test_expect_success 'check hook honours --only' '
-	echo "content" >> file &&
+	echo "content" >> firstFile &&
 	echo "other content" >> file2 &&
 	git add file2 &&
-	git commit --only -- file &&
-	test "$(git status --porcelain)" = "" 
+	git commit -m "test" --only -- file2 &&
+	git ls-tree HEAD --name-only > actual &&
+	test_cmp expect actual
+	
 '
 
 test_done
