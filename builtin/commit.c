@@ -665,7 +665,8 @@ static void adjust_comment_line_char(const struct strbuf *sb)
 static int prepare_to_commit(const char *index_file, const char *prefix,
 			     struct commit *current_head,
 			     struct wt_status *s,
-			     struct strbuf *author_ident)
+			     struct strbuf *author_ident,
+				 const char **argv)
 {
 	struct stat statbuf;
 	struct strbuf committer_ident = STRBUF_INIT;
@@ -679,7 +680,7 @@ static int prepare_to_commit(const char *index_file, const char *prefix,
 	/* This checks and barfs if author is badly specified */
 	determine_author_info(author_ident);
 
-	if (!no_verify && run_commit_hook(use_editor, index_file, "pre-commit", NULL))
+	if (!no_verify && run_commit_hook(use_editor, NULL, "pre-commit", NULL))
 		return 0;
 
 	if (squash_message) {
@@ -945,13 +946,38 @@ static int prepare_to_commit(const char *index_file, const char *prefix,
 		return 0;
 	}
 
+	if (commit_style == COMMIT_PARTIAL){
+		// get files in only
+		// remove files that arent in only from to-be-commited
+		struct pathspec pathspec;
+		struct string_list partial = STRING_LIST_INIT_DUP;
+		parse_pathspec(&pathspec, 0,
+		       PATHSPEC_PREFER_FULL,
+		       prefix, argv);
+			   
+		if (list_paths(&partial, !current_head ? NULL : "HEAD", prefix, &pathspec))
+			exit(1);
+
+		discard_cache();
+		if (read_cache() < 0)
+			die(_("cannot read the index"));
+
+		hold_locked_index(&index_lock, LOCK_DIE_ON_ERROR);
+		add_remove_files(&partial);
+		refresh_cache(REFRESH_QUIET);
+		update_main_cache_tree(WRITE_TREE_SILENT);
+		if (write_locked_index(&the_index, &index_lock, 0))
+			die(_("unable to write new_index file"));
+		string_list_clear(&partial, 0);
+		clear_pathspec(&pathspec);
+	}
 	if (!no_verify && find_hook("pre-commit")) {
 		/*
 		 * Re-read the index as pre-commit hook could have updated it,
 		 * and write it out as a tree.  We must do this before we invoke
 		 * the editor and after we invoke run_status above.
 		 */
-		discard_cache();
+		//discard_cache();
 	}
 	read_cache_from(index_file);
 
@@ -1704,12 +1730,13 @@ int cmd_commit(int argc, const char **argv, const char *prefix)
 
 	if (dry_run)
 		return dry_run_commit(argc, argv, prefix, current_head, &s);
+	//LL: Must be after here
 	index_file = prepare_index(argc, argv, prefix, current_head, 0);
 
 	/* Set up everything for writing the commit object.  This includes
 	   running hooks, writing the trees, and interacting with the user.  */
 	if (!prepare_to_commit(index_file, prefix,
-			       current_head, &s, &author_ident)) {
+			       current_head, &s, &author_ident, argv)) {
 		rollback_index_files();
 		return 1;
 	}
@@ -1808,6 +1835,7 @@ int cmd_commit(int argc, const char **argv, const char *prefix)
 	strbuf_insert(&sb, 0, reflog_msg, strlen(reflog_msg));
 	strbuf_insert(&sb, strlen(reflog_msg), ": ", 2);
 
+	// LL: This is where the transaction is commited.
 	transaction = ref_transaction_begin(&err);
 	if (!transaction ||
 	    ref_transaction_update(transaction, "HEAD", &oid,

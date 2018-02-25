@@ -151,10 +151,18 @@ test_expect_success 'check hook honours --only' '
 	echo "content" >> firstFile &&
 	echo "other content" >> file2 &&
 	git add file2 &&
-	git commit -m "test" --only -- file2 &&
+	debug git commit -m "test" --only -- file2 &&
 	git ls-tree HEAD --name-only > actual &&
 	test_cmp expect actual
-	
 '
 
 test_done
+
+# Key: 
+#   U=Untracked; S=Staged; CX=Committed at X
+# What should happen:				What actually happens
+# 1.   U=firstFile						 U=firstFile
+# 2.   U=firstFile; file2				 U=firstFile; file2
+# 3.   U=firstFile S=file2				 U=firstFile S=file2
+# 4.1  S=firstFile; file2 				 ???
+# 4.2  S=firstFile; C1=file2			 U=firstFile; S=-firstFile; C1=file2, firstFile

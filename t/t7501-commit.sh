@@ -149,7 +149,7 @@ test_expect_success 'amend --only ignores staged contents' '
 	cp file file.expect &&
 	echo changed >file &&
 	git add file &&
-	git commit --no-edit --amend --only &&
+	debug git commit --no-edit --amend --only &&
 	git cat-file blob HEAD:file >file.actual &&
 	test_cmp file.expect file.actual &&
 	git diff --exit-code
